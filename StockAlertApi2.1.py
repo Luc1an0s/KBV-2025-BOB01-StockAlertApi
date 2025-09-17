@@ -5,9 +5,8 @@ import os
 from collections import defaultdict
 from datetime import datetime
 
-print("🔄 Iniciando envio de mensagens...")
+print("Iniciando envio de mensagens...")
 
-# 🔐 Lê todos os números do secret GET_NUMWPP_ENV
 raw_env = os.environ.get("GET_NUMWPP_ENV", "")
 numeros = []
 
@@ -18,10 +17,8 @@ for linha in raw_env.splitlines():
         if numero:
             numeros.append(numero)
 
-# 🔐 Lê número do desenvolvedor
 numero_dev = os.environ.get("WHATSAPP_DEVELOPER")
 
-# 🔐 Lê credenciais do Google
 cred_json = os.environ.get("GOOGLE_CRED_JSON")
 with open("credenciais.json", "w") as f:
     f.write(cred_json)
@@ -37,7 +34,6 @@ SHEET_TAB_NAME = 'ESTOQUE'
 worksheet = client.open_by_key(SHEET_ID).worksheet(SHEET_TAB_NAME)
 dados = worksheet.get_all_records()
 
-# 🏬 Processa os dados
 ultima_n_loja = ""
 ultima_loja = ""
 ultima_estado = ""
@@ -73,7 +69,6 @@ for idx, linha in enumerate(dados, start=2):
     chave = f"{n_loja} - {loja} ({estado})"
     lojas[chave].append(f"{quantidade} MT de bobina {produto_formatado}")
 
-# 📤 Envia mensagens para todos os números
 url = "https://appbobinaskbv.bubbleapps.io/version-test/api/1.1/wf/enviamensagem"
 
 for chave, produtos in lojas.items():
@@ -88,18 +83,9 @@ for chave, produtos in lojas.items():
         response = requests.post(url, data=payload)
         print(f"📡 Enviado para {numero}: {response.status_code} - {response.text}")
 
-# ✅ Mensagem de confirmação para o desenvolvedor
 if numero_dev:
     agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    total_lojas = len(lojas)
-    total_produtos = sum(len(produtos) for produtos in lojas.values())
-
-    mensagem = (
-        f"🛠️ Confirmação KBV\n"
-        f"✅ Script rodou com sucesso em {agora} (horário de Manaus).\n"
-        f"🏬 Lojas processadas: {total_lojas}\n"
-        f"📦 Produtos enviados: {total_produtos}"
-    )
+    mensagem = f"🛠️ Confirmação KBV\n✅ Script rodou com sucesso em {agora} (horário de Manaus)."
 
     print(f"📌 Número do desenvolvedor lido: {numero_dev}")
     print(f"📨 Mensagem de confirmação: {mensagem}")
