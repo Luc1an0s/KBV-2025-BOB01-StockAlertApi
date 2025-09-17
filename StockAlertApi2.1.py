@@ -5,7 +5,7 @@ import os
 from collections import defaultdict
 from datetime import datetime
 
-print("Iniciando envio de mensagens...")
+print("🔄 Iniciando envio de mensagens...")
 
 raw_env = os.environ.get("GET_NUMWPP_ENV", "")
 numeros = []
@@ -23,7 +23,6 @@ cred_json = os.environ.get("GOOGLE_CRED_JSON")
 with open("credenciais.json", "w") as f:
     f.write(cred_json)
 
-# 📊 Conecta ao Google Sheets
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 creds = ServiceAccountCredentials.from_json_keyfile_name("credenciais.json", scope)
 client = gspread.authorize(creds)
