@@ -1,8 +1,11 @@
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import requests
+import smtplib
+from email.mime.text import MIMEText
 import os
 import re
+import pytz
 from collections import defaultdict
 from datetime import datetime
 
@@ -10,17 +13,19 @@ print("🔄 Iniciando envio de mensagens...")
 
 # 🔐 Carrega credenciais do GitHub Secrets
 cred_json = os.environ.get("GOOGLE_CRED_JSON")
-with open("credenciais.json", "w", encoding="utf-8") as f:
+if not cred_json:
+    raise RuntimeError("Variável GOOGLE_CRED_JSON não definida.")
+with open("credentials.json", "w", encoding="utf-8") as f:
     f.write(cred_json)
 
+# Autenticação Google Sheets
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-creds = ServiceAccountCredentials.from_json_keyfile_name("credenciais.json", scope)
+creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
 client = gspread.authorize(creds)
 
 SHEET_ID = '1pP92qnTgU32x44QCM8kCkXl9mSSukKFGwf4qGQUBObs'
 SHEET_TAB_NAME = 'ESTOQUE'
 worksheet = client.open_by_key(SHEET_ID).worksheet(SHEET_TAB_NAME)
-dados = worksheet.get_all_records()
 
 # 📦 Função para interpretar valores brasileiros com vírgula e ponto
 def parse_quantidade(valor):
@@ -69,28 +74,45 @@ for linha in raw_env.splitlines():
         if numero:
             numeros.append(numero)
 
-numero_dev = os.environ.get("WHATSAPP_DEVELOPER")
-
 # 🧠 Processa os dados
-ultima_n_loja = ""
-ultima_loja = ""
-ultima_estado = ""
+values = worksheet.get_all_values()
+headers = values[0]
+rows = values[1:]
+
+def idx(colname):
+    try:
+        return headers.index(colname)
+    except ValueError:
+        raise RuntimeError(f"Coluna '{colname}' não encontrada.")
+
+i_n_loja = idx("N_LOJA")
+i_loja = idx("LOJA")
+i_estado = idx("ESTADO")
+i_produto = idx("TIPO DE TELHA")
+i_qtd = idx("ESTOQUE A ENVIAR")
+
+ultima_n_loja = ultima_loja = ultima_estado = ""
 lojas = defaultdict(list)
 
-for idx, linha in enumerate(dados, start=2):
-    n_loja = linha.get("N_LOJA", "") or ultima_n_loja
-    loja = linha.get("LOJA", "") or ultima_loja
-    estado = linha.get("ESTADO", "") or ultima_estado
-    produto = linha.get("TIPO DE TELHA", "")
-    quantidade_raw = linha.get("ESTOQUE A ENVIAR", 0)
+for r in rows:
+    n_loja = r[i_n_loja].strip() if i_n_loja < len(r) else ""
+    loja = r[i_loja].strip() if i_loja < len(r) else ""
+    estado = r[i_estado].strip() if i_estado < len(r) else ""
+    produto = r[i_produto].strip() if i_produto < len(r) else ""
+    quantidade_raw = r[i_qtd].strip() if i_qtd < len(r) else ""
 
-    ultima_n_loja = n_loja
-    ultima_loja = loja
-    ultima_estado = estado
+    if not n_loja:
+        n_loja = ultima_n_loja
+    if not loja:
+        loja = ultima_loja
+    if not estado:
+        estado = ultima_estado
+
+    ultima_n_loja, ultima_loja, ultima_estado = n_loja, loja, estado
 
     try:
         quantidade = parse_quantidade(quantidade_raw)
-    except (ValueError, TypeError):
+    except:
         continue
 
     if quantidade < 1:
@@ -121,20 +143,27 @@ for chave, produtos in lojas.items():
         response = requests.post(url, data=payload)
         print(f"📡 Enviado para {numero}: {response.status_code} - {response.text}")
 
-# 📩 Confirmação para desenvolvedor
-if numero_dev:
-    agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+# 📩 Confirmação por e-mail
+remetente = os.environ.get("EMAIL_REMETENTE")
+senha = os.environ.get("EMAIL_SENHA")
+destinatario = os.environ.get("EMAIL_DESTINATARIO")
+
+if remetente and senha and destinatario:
+    manaus_tz = pytz.timezone("America/Manaus")
+    agora = datetime.now(manaus_tz).strftime("%d/%m/%Y %H:%M:%S")
     mensagem = f"🛠️ Confirmação KBV\n✅ Script rodou com sucesso em {agora} (horário de Manaus)."
-    print(f"📌 Número do desenvolvedor lido: {numero_dev}")
-    print(f"📨 Mensagem de confirmação: {mensagem}")
-    payload = {
-        "celular": numero_dev,
-        "mensagem": mensagem
-    }
-    response = requests.post(url, data=payload)
-    print(f"📡 Status: {response.status_code}")
-    print(f"📨 Resposta: {response.text}")
+    msg = MIMEText(mensagem)
+    msg["Subject"] = "Confirmação KBV"
+    msg["From"] = remetente
+    msg["To"] = destinatario
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(remetente, senha)
+            server.sendmail(remetente, destinatario, msg.as_string())
+        print("📧 E-mail de confirmação enviado com sucesso!")
+    except Exception as e:
+        print(f"⚠️ Erro ao enviar e-mail: {e}")
 else:
-    print("⚠️ Nenhum número de desenvolvedor encontrado. Confirmação não enviada.")
+    print("⚠️ Variáveis de e-mail não configuradas. Confirmação não enviada.")
 
 print("✅ Mensagens enviadas com sucesso!")
