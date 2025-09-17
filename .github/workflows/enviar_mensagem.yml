@@ -2,8 +2,8 @@ name: StockAlertApi
 
 on:
   schedule:
-    - cron: '0 15 * * 1-6'  # 12h Manaus (15h UTC)
-    - cron: '0 20 * * 1-6'  # 17h Manaus (20h UTC)
+    - cron: '0 16 * * 1-6'  # 12h Manaus (16h UTC)
+    - cron: '0 21 * * 1-6'  # 17h Manaus (21h UTC)
   workflow_dispatch:
 
 jobs:
