@@ -1,25 +1,21 @@
-import requests
-import os
-from datetime import datetime
+import smtplib
+from email.mime.text import MIMEText
 
-print("🧪 Entrando no bloco de confirmação...")
+remetente = "stockalertapi@gmail.com"
+senha = "exam vujb dpoz urba"
+destinatario = "luciano.maciel@grupokbv.com"
 
-numero_dev = os.environ.get("WHATSAPP_DEVELOPER")
-print(f"📌 Número do desenvolvedor lido: {numero_dev}")
+mensagem = "Teste de envio de e-mail via script Python."
 
-if numero_dev:
-    agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    mensagem = f"🛠️ Confirmação KBV\n✅ Script rodou com sucesso em {agora} (horário de Manaus)."
+msg = MIMEText(mensagem)
+msg["Subject"] = "Teste KBV"
+msg["From"] = remetente
+msg["To"] = destinatario
 
-    payload = {
-        "celular": numero_dev,
-        "mensagem": mensagem
-    }
-
-    print(f"📦 Payload de confirmação: {payload}")
-
-    response = requests.post("https://appbobinaskbv.bubbleapps.io/version-test/api/1.1/wf/enviamensagem", data=payload)
-    print(f"📡 Status da confirmação: {response.status_code}")
-    print(f"📨 Resposta da API: {response.text}")
-else:
-    print("⚠️ Nenhum número de desenvolvedor encontrado. Confirmação não enviada.")
+try:
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(remetente, senha)
+        server.sendmail(remetente, destinatario, msg.as_string())
+    print("📧 E-mail enviado com sucesso!")
+except Exception as e:
+    print(f"⚠️ Erro ao enviar e-mail: {e}")
