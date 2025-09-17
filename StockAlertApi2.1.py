@@ -10,14 +10,16 @@ from datetime import datetime
 
 print("🔄 Iniciando envio de mensagens...")
 
-# Caminho direto para credenciais
-cred_path = "C:/Users/cius/Documents/GitHub/Credentials StockAlertApi/credentials.json"
-if not os.path.exists(cred_path):
-    raise FileNotFoundError(f"Arquivo não encontrado: {cred_path}")
+# 🔐 Carrega credenciais do GitHub Secrets
+cred_json = os.environ.get("GOOGLE_CRED_JSON")
+if not cred_json:
+    raise RuntimeError("Variável GOOGLE_CRED_JSON não definida.")
+with open("credentials.json", "w", encoding="utf-8") as f:
+    f.write(cred_json)
 
 # Autenticação Google Sheets
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-creds = ServiceAccountCredentials.from_json_keyfile_name(cred_path, scope)
+creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
 client = gspread.authorize(creds)
 
 SHEET_ID = '1pP92qnTgU32x44QCM8kCkXl9mSSukKFGwf4qGQUBObs'
