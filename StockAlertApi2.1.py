@@ -6,12 +6,16 @@ from collections import defaultdict
 
 print("🔄 Iniciando envio de mensagens...")
 
-# 🔐 Lê todos os números de WhatsApp dos secrets
+# 🔐 Lê todos os números do secret GET_NUMWPP_ENV
+raw_env = os.environ.get("GET_NUMWPP_ENV", "")
 numeros = []
-for i in range(1, 2):
-    numero = os.environ.get(f"WHATSAPP_NUMERO{i}")
-    if numero:
-        numeros.append(numero)
+
+for linha in raw_env.splitlines():
+    if "=" in linha:
+        _, valor = linha.split("=", 1)
+        numero = valor.strip()
+        if numero:
+            numeros.append(numero)
 
 # 🔐 Lê credenciais do Google
 cred_json = os.environ.get("GOOGLE_CRED_JSON")
