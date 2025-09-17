@@ -17,7 +17,7 @@ scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/au
 creds = ServiceAccountCredentials.from_json_keyfile_name("credenciais.json", scope)
 client = gspread.authorize(creds)
 
-SHEET_ID = '1FbVt2Ux4ZwtO_cpF0AUS9lO5lrgJJxKMEsyENZG3jXs'
+SHEET_ID = '1pP92qnTgU32x44QCM8kCkXl9mSSukKFGwf4qGQUBObs'
 SHEET_TAB_NAME = 'ESTOQUE'
 worksheet = client.open_by_key(SHEET_ID).worksheet(SHEET_TAB_NAME)
 dados = worksheet.get_all_records()
