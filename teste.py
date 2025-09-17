@@ -106,7 +106,7 @@ for r in rows:
         print(f"[{count:03}] ERRO ao converter | Bruto='{quantidade_raw}' | Motivo: {e}")
 
     count += 1
-    if count >= 50:
+    if count >= 131:
         break
 
 print(f"✅ Diagnóstico finalizado: {count} linhas inspecionadas, {erros} com erro.")

@@ -10,28 +10,60 @@ from datetime import datetime
 
 print("🔄 Iniciando envio de mensagens...")
 
+# Caminho direto para credenciais
+cred_path = "C:/Users/cius/Documents/GitHub/Credentials StockAlertApi/credentials.json"
+if not os.path.exists(cred_path):
+    raise FileNotFoundError(f"Arquivo não encontrado: {cred_path}")
+
+# Autenticação Google Sheets
+scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+creds = ServiceAccountCredentials.from_json_keyfile_name(cred_path, scope)
+client = gspread.authorize(creds)
+
+SHEET_ID = '1pP92qnTgU32x44QCM8kCkXl9mSSukKFGwf4qGQUBObs'
+SHEET_TAB_NAME = 'ESTOQUE'
+worksheet = client.open_by_key(SHEET_ID).worksheet(SHEET_TAB_NAME)
+
 # Função robusta para interpretar valores brasileiros
 def parse_quantidade(valor):
-    if not valor:
+    if valor is None:
         return 0.0
     if isinstance(valor, (int, float)):
         return float(valor)
-    valor = str(valor).strip()
-    valor = re.sub(r"[^\d,\.]", "", valor)
-
-    if "," in valor:
-        partes = valor.split(",")
-        inteiro = partes[0].replace(".", "")
-        decimal = partes[1] if len(partes) > 1 else "00"
-        valor = f"{inteiro}.{decimal}"
-    else:
-        valor = valor.replace(",", "")
-    return float(valor)
+    s = str(valor).strip()
+    s = re.sub(r"[^\d.,-]", "", s)
+    negativo = s.startswith("-")
+    s = s.lstrip("-")
+    if not s:
+        return 0.0
+    if "," in s:
+        inteiro, _, decimal = s.rpartition(",")
+        inteiro = inteiro.replace(".", "")
+        decimal = re.sub(r"\D", "", decimal)
+        if decimal == "":
+            decimal = "00"
+        s = f"{inteiro}.{decimal}"
+    elif "." in s:
+        parts = s.split(".")
+        if len(parts) > 2:
+            last = parts[-1]
+            if last.isdigit() and 1 <= len(last) <= 2:
+                inteiro = "".join(parts[:-1])
+                decimal = last
+                s = f"{inteiro}.{decimal}"
+            else:
+                s = "".join(parts)
+        else:
+            left, right = parts
+            if right.isdigit() and 1 <= len(right) <= 2:
+                s = f"{left}.{right}"
+            else:
+                s = f"{left}{right}"
+    return -float(s) if negativo else float(s)
 
 # Coleta números de WhatsApp
 raw_env = os.environ.get("GET_NUMWPP_ENV", "")
 numeros = []
-
 for linha in raw_env.splitlines():
     if "=" in linha:
         _, valor = linha.split("=", 1)
@@ -39,41 +71,45 @@ for linha in raw_env.splitlines():
         if numero:
             numeros.append(numero)
 
-# Autenticação Google Sheets
-cred_json = os.environ.get("GOOGLE_CRED_JSON")
-with open("credenciais.json", "w") as f:
-    f.write(cred_json)
-
-scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-creds = ServiceAccountCredentials.from_json_keyfile_name("credenciais.json", scope)
-client = gspread.authorize(creds)
-
-SHEET_ID = '1pP92qnTgU32x44QCM8kCkXl9mSSukKFGwf4qGQUBObs'
-SHEET_TAB_NAME = 'ESTOQUE'
-
-worksheet = client.open_by_key(SHEET_ID).worksheet(SHEET_TAB_NAME)
-dados = worksheet.get_all_records()
-
 # Processa os dados da planilha
-ultima_n_loja = ""
-ultima_loja = ""
-ultima_estado = ""
+values = worksheet.get_all_values()
+headers = values[0]
+rows = values[1:]
+
+def idx(colname):
+    try:
+        return headers.index(colname)
+    except ValueError:
+        raise RuntimeError(f"Coluna '{colname}' não encontrada.")
+
+i_n_loja = idx("N_LOJA")
+i_loja = idx("LOJA")
+i_estado = idx("ESTADO")
+i_produto = idx("TIPO DE TELHA")
+i_qtd = idx("ESTOQUE A ENVIAR")
+
+ultima_n_loja = ultima_loja = ultima_estado = ""
 lojas = defaultdict(list)
 
-for idx, linha in enumerate(dados, start=2):
-    n_loja = linha.get("N_LOJA", "") or ultima_n_loja
-    loja = linha.get("LOJA", "") or ultima_loja
-    estado = linha.get("ESTADO", "") or ultima_estado
-    produto = linha.get("TIPO DE TELHA", "")
-    quantidade_raw = str(linha.get("ESTOQUE A ENVIAR", "")).strip()
+for r in rows:
+    n_loja = r[i_n_loja].strip() if i_n_loja < len(r) else ""
+    loja = r[i_loja].strip() if i_loja < len(r) else ""
+    estado = r[i_estado].strip() if i_estado < len(r) else ""
+    produto = r[i_produto].strip() if i_produto < len(r) else ""
+    quantidade_raw = r[i_qtd].strip() if i_qtd < len(r) else ""
 
-    ultima_n_loja = n_loja
-    ultima_loja = loja
-    ultima_estado = estado
+    if not n_loja:
+        n_loja = ultima_n_loja
+    if not loja:
+        loja = ultima_loja
+    if not estado:
+        estado = ultima_estado
+
+    ultima_n_loja, ultima_loja, ultima_estado = n_loja, loja, estado
 
     try:
         quantidade = parse_quantidade(quantidade_raw)
-    except (ValueError, TypeError):
+    except:
         continue
 
     if quantidade < 1:
@@ -96,13 +132,11 @@ url = "https://appbobinaskbv.bubbleapps.io/version-test/api/1.1/wf/enviamensagem
 
 for chave, produtos in lojas.items():
     mensagem = f"⚠ Loja {chave} precisa de:\n" + "\n".join(produtos)
-
     for numero in numeros:
         payload = {
             "celular": numero,
             "mensagem": mensagem
         }
-
         response = requests.post(url, data=payload)
         print(f"📡 Enviado para {numero}: {response.status_code} - {response.text}")
 
@@ -114,12 +148,10 @@ destinatario = os.environ.get("EMAIL_DESTINATARIO")
 if remetente and senha and destinatario:
     agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     mensagem = f"🛠️ Confirmação KBV\n✅ Script rodou com sucesso em {agora} (horário de Manaus)."
-
     msg = MIMEText(mensagem)
     msg["Subject"] = "Confirmação KBV"
     msg["From"] = remetente
     msg["To"] = destinatario
-
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(remetente, senha)
