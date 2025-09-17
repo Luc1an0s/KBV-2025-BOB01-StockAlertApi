@@ -7,7 +7,7 @@ import os
 from collections import defaultdict
 from datetime import datetime
 
-print("🔄 Iniciando envio de mensagens...")
+print("Iniciando envio de mensagens...")
 
 raw_env = os.environ.get("GET_NUMWPP_ENV", "")
 numeros = []
@@ -88,7 +88,7 @@ destinatario = os.environ.get("EMAIL_DESTINATARIO")
 
 if remetente and senha and destinatario:
     agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    mensagem = f"🛠️ Confirmação KBV\n✅ Script rodou com sucesso em {agora} (horário de Manaus)."
+    mensagem = f"Confirmação KBV\n Script rodou com sucesso em {agora} (horário de Manaus)."
 
     msg = MIMEText(mensagem)
     msg["Subject"] = "Confirmação KBV"
@@ -99,10 +99,10 @@ if remetente and senha and destinatario:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(remetente, senha)
             server.sendmail(remetente, destinatario, msg.as_string())
-        print("📧 E-mail de confirmação enviado com sucesso!")
+        print("E-mail de confirmação enviado com sucesso!")
     except Exception as e:
-        print(f"⚠️ Erro ao enviar e-mail: {e}")
+        print(f" Erro ao enviar e-mail: {e}")
 else:
-    print("⚠️ Variáveis de e-mail não configuradas. Confirmação não enviada.")
+    print("Variáveis de e-mail não configuradas. Confirmação não enviada.")
 
-print("✅ Mensagens enviadas com sucesso!")
+print("Mensagens enviadas com sucesso!")
