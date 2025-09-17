@@ -27,7 +27,7 @@ jobs:
           python-version: '3.10'
 
       - name: Instalar dependências
-        run: pip install gspread oauth2client requests
+        run: pip install gspread oauth2client requests pytz
 
       - name: Rodar script
         run: python StockAlertApi2.1.py
