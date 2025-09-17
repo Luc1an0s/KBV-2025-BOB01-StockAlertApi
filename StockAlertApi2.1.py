@@ -77,7 +77,7 @@ for idx, linha in enumerate(dados, start=2):
     except:
         produto_formatado = str(produto)
 
-    quantidade_formatada = f"{quantidade:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    quantidade_formatada = f"{quantidade:.2f}".replace(".", ",")
     chave = f"{n_loja} - {loja} ({estado})"
     lojas[chave].append(f"{quantidade_formatada} MT de bobina {produto_formatado}")
 
