@@ -1,0 +1,30 @@
+name: Enviar mensagens para lojas
+
+on:
+  schedule:
+    - cron: '0 15 * * 1-6'  # 12h Manaus (15h UTC)
+    - cron: '0 20 * * 1-6'  # 17h Manaus (20h UTC)
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependências
+        run: |
+          pip install gspread oauth2client requests
+
+      - name: Rodar script
+        run: python StockAlertApi2.1.py
+        env:
+          GET_NUMWPP_ENV: ${{ secrets.GET_NUMWPP_ENV }}
+          GOOGLE_CRED_JSON: ${{ secrets.GOOGLE_CRED_JSON }}
