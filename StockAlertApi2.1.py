@@ -4,18 +4,18 @@ import requests
 import smtplib
 from email.mime.text import MIMEText
 import os
-import re
+import locale
 from collections import defaultdict
 from datetime import datetime
 
 print("🔄 Iniciando envio de mensagens...")
 
-# Função para interpretar valores no formato brasileiro
+# Configura locale para interpretar números brasileiros
+locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
+
 def parse_quantidade(valor):
     if isinstance(valor, str):
-        valor = re.sub(r"[^\d.,]", "", valor)
-        if "," in valor:
-            valor = valor.replace(".", "").replace(",", ".")
+        return locale.atof(valor)
     return float(valor)
 
 # Coleta números de WhatsApp
