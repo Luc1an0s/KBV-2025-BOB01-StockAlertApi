@@ -1,19 +1,3 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Documentação - StockAlertApi</title>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; }
-    h1, h2 { color: #2c3e50; }
-    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background-color: #f4f4f4; }
-    code { background-color: #f9f9f9; padding: 2px 4px; border-radius: 4px; }
-  </style>
-</head>
-<body>
-
   <h1>📦 StockAlertApi</h1>
   <p>Sistema automatizado de monitoramento de estoque e envio de alertas via WhatsApp e e-mail, com execução agendada pelo GitHub Actions.</p>
 
