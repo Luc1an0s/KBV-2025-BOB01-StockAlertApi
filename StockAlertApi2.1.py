@@ -17,6 +17,9 @@ for linha in raw_env.splitlines():
         if numero:
             numeros.append(numero)
 
+# 🔐 Lê número do desenvolvedor
+numero_dev = os.environ.get("WHATSAPP_DEVELOPER")
+
 # 🔐 Lê credenciais do Google
 cred_json = os.environ.get("GOOGLE_CRED_JSON")
 with open("credenciais.json", "w") as f:
@@ -83,5 +86,16 @@ for chave, produtos in lojas.items():
 
         response = requests.post(url, data=payload)
         print(f"📡 Enviado para {numero}: {response.status_code} - {response.text}")
+
+# ✅ Mensagem de confirmação para o desenvolvedor
+if numero_dev:
+    confirmacao = "✅ O script de envio de mensagens rodou com sucesso no GitHub Actions."
+    payload_dev = {
+        "celular": numero_dev,
+        "mensagem": confirmacao
+    }
+
+    response_dev = requests.post(url, data=payload_dev)
+    print(f"📬 Confirmação enviada para desenvolvedor: {response_dev.status_code} - {response_dev.text}")
 
 print("✅ Mensagens enviadas com sucesso!")
