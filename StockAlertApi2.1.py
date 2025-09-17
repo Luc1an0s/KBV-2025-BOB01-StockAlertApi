@@ -10,11 +10,15 @@ from datetime import datetime
 
 print("🔄 Iniciando envio de mensagens...")
 
-# Configura locale para interpretar números brasileiros
+# Configura o locale brasileiro
 locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
 
 def parse_quantidade(valor):
     if isinstance(valor, str):
+        valor = valor.strip()
+        if "." in valor and "," not in valor:
+            # Corrige formato americano para brasileiro
+            valor = valor.replace(".", ",")
         return locale.atof(valor)
     return float(valor)
 
@@ -55,7 +59,7 @@ for idx, linha in enumerate(dados, start=2):
     loja = linha.get("LOJA", "") or ultima_loja
     estado = linha.get("ESTADO", "") or ultima_estado
     produto = linha.get("TIPO DE TELHA", "")
-    quantidade_raw = linha.get("ESTOQUE A ENVIAR", 0)
+    quantidade_raw = str(linha.get("ESTOQUE A ENVIAR", "")).strip()
 
     ultima_n_loja = n_loja
     ultima_loja = loja
