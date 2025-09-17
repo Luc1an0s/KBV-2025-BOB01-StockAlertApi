@@ -8,7 +8,7 @@ print("🔄 Iniciando envio de mensagens...")
 
 # 🔐 Lê todos os números de WhatsApp dos secrets
 numeros = []
-for i in range(1, 7):
+for i in range(1, 2):
     numero = os.environ.get(f"WHATSAPP_NUMERO{i}")
     if numero:
         numeros.append(numero)
