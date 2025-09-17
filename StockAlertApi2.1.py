@@ -11,14 +11,12 @@ from datetime import datetime
 
 print("🔄 Iniciando envio de mensagens...")
 
-# 🔐 Carrega credenciais do GitHub Secrets
 cred_json = os.environ.get("GOOGLE_CRED_JSON")
 if not cred_json:
     raise RuntimeError("Variável GOOGLE_CRED_JSON não definida.")
 with open("credentials.json", "w", encoding="utf-8") as f:
     f.write(cred_json)
 
-# Autenticação Google Sheets
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
 client = gspread.authorize(creds)
@@ -27,7 +25,6 @@ SHEET_ID = '1pP92qnTgU32x44QCM8kCkXl9mSSukKFGwf4qGQUBObs'
 SHEET_TAB_NAME = 'ESTOQUE'
 worksheet = client.open_by_key(SHEET_ID).worksheet(SHEET_TAB_NAME)
 
-# 📦 Função para interpretar valores brasileiros com vírgula e ponto
 def parse_quantidade(valor):
     if valor is None:
         return 0.0
@@ -64,7 +61,6 @@ def parse_quantidade(valor):
                 s = f"{left}{right}"
     return -float(s) if negativo else float(s)
 
-# 📱 Números de WhatsApp
 raw_env = os.environ.get("GET_NUMWPP_ENV", "")
 numeros = []
 for linha in raw_env.splitlines():
@@ -74,7 +70,6 @@ for linha in raw_env.splitlines():
         if numero:
             numeros.append(numero)
 
-# 🧠 Processa os dados
 values = worksheet.get_all_values()
 headers = values[0]
 rows = values[1:]
@@ -130,7 +125,6 @@ for r in rows:
     chave = f"{n_loja} - {loja} ({estado})"
     lojas[chave].append(f"{quantidade_formatada} MT de bobina {produto_formatado}")
 
-# 🚀 Envia mensagens
 url = "https://appbobinaskbv.bubbleapps.io/version-test/api/1.1/wf/enviamensagem"
 
 for chave, produtos in lojas.items():
@@ -143,7 +137,6 @@ for chave, produtos in lojas.items():
         response = requests.post(url, data=payload)
         print(f"📡 Enviado para {numero}: {response.status_code} - {response.text}")
 
-# 📩 Confirmação por e-mail
 remetente = os.environ.get("EMAIL_REMETENTE")
 senha = os.environ.get("EMAIL_SENHA")
 destinatario = os.environ.get("EMAIL_DESTINATARIO")
