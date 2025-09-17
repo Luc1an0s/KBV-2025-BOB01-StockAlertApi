@@ -28,3 +28,6 @@ jobs:
         env:
           GET_NUMWPP_ENV: ${{ secrets.GET_NUMWPP_ENV }}
           GOOGLE_CRED_JSON: ${{ secrets.GOOGLE_CRED_JSON }}
+          EMAIL_REMETENTE: ${{ secrets.EMAIL_REMETENTE }}
+          EMAIL_SENHA: ${{ secrets.EMAIL_SENHA }}
+          EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}

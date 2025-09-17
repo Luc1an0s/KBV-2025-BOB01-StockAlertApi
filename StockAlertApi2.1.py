@@ -1,6 +1,8 @@
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import requests
+import smtplib
+from email.mime.text import MIMEText
 import os
 from collections import defaultdict
 from datetime import datetime
@@ -16,8 +18,6 @@ for linha in raw_env.splitlines():
         numero = valor.strip()
         if numero:
             numeros.append(numero)
-
-numero_dev = os.environ.get("WHATSAPP_DEVELOPER")
 
 cred_json = os.environ.get("GOOGLE_CRED_JSON")
 with open("credenciais.json", "w") as f:
@@ -82,22 +82,27 @@ for chave, produtos in lojas.items():
         response = requests.post(url, data=payload)
         print(f"📡 Enviado para {numero}: {response.status_code} - {response.text}")
 
-if numero_dev:
+remetente = os.environ.get("EMAIL_REMETENTE")
+senha = os.environ.get("EMAIL_SENHA")
+destinatario = os.environ.get("EMAIL_DESTINATARIO")
+
+if remetente and senha and destinatario:
     agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     mensagem = f"🛠️ Confirmação KBV\n✅ Script rodou com sucesso em {agora} (horário de Manaus)."
 
-    print(f"📌 Número do desenvolvedor lido: {numero_dev}")
-    print(f"📨 Mensagem de confirmação: {mensagem}")
+    msg = MIMEText(mensagem)
+    msg["Subject"] = "Confirmação KBV"
+    msg["From"] = remetente
+    msg["To"] = destinatario
 
-    payload = {
-        "celular": numero_dev,
-        "mensagem": mensagem
-    }
-
-    response = requests.post(url, data=payload)
-    print(f"📡 Status: {response.status_code}")
-    print(f"📨 Resposta: {response.text}")
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(remetente, senha)
+            server.sendmail(remetente, destinatario, msg.as_string())
+        print("📧 E-mail de confirmação enviado com sucesso!")
+    except Exception as e:
+        print(f"⚠️ Erro ao enviar e-mail: {e}")
 else:
-    print("⚠️ Nenhum número de desenvolvedor encontrado. Confirmação não enviada.")
+    print("⚠️ Variáveis de e-mail não configuradas. Confirmação não enviada.")
 
 print("✅ Mensagens enviadas com sucesso!")
