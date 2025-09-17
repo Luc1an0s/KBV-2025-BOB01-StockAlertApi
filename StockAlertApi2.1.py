@@ -4,10 +4,19 @@ import requests
 import smtplib
 from email.mime.text import MIMEText
 import os
+import re
 from collections import defaultdict
 from datetime import datetime
 
 print("🔄 Iniciando envio de mensagens...")
+
+# Função para interpretar valores no formato brasileiro
+def parse_quantidade(valor):
+    if isinstance(valor, str):
+        valor = re.sub(r"[^\d.,]", "", valor)
+        if "," in valor:
+            valor = valor.replace(".", "").replace(",", ".")
+    return float(valor)
 
 # Coleta números de WhatsApp
 raw_env = os.environ.get("GET_NUMWPP_ENV", "")
@@ -53,9 +62,7 @@ for idx, linha in enumerate(dados, start=2):
     ultima_estado = estado
 
     try:
-        if isinstance(quantidade_raw, str):
-            quantidade_raw = quantidade_raw.replace(".", "").replace(",", ".")
-        quantidade = float(quantidade_raw)
+        quantidade = parse_quantidade(quantidade_raw)
     except (ValueError, TypeError):
         continue
 
@@ -70,7 +77,7 @@ for idx, linha in enumerate(dados, start=2):
     except:
         produto_formatado = str(produto)
 
-    quantidade_formatada = f"{quantidade:.2f}".replace(".", ",")
+    quantidade_formatada = f"{quantidade:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     chave = f"{n_loja} - {loja} ({estado})"
     lojas[chave].append(f"{quantidade_formatada} MT de bobina {produto_formatado}")
 
@@ -107,10 +114,10 @@ if remetente and senha and destinatario:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(remetente, senha)
             server.sendmail(remetente, destinatario, msg.as_string())
-        print("E-mail de confirmação enviado com sucesso!")
+        print("📧 E-mail de confirmação enviado com sucesso!")
     except Exception as e:
-        print(f"Erro ao enviar e-mail: {e}")
+        print(f"⚠️ Erro ao enviar e-mail: {e}")
 else:
-    print("Variáveis de e-mail não configuradas. Confirmação não enviada.")
+    print("⚠️ Variáveis de e-mail não configuradas. Confirmação não enviada.")
 
-print("Mensagens enviadas com sucesso!")
+print("✅ Mensagens enviadas com sucesso!")
