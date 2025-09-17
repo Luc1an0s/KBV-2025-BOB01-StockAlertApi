@@ -91,18 +91,27 @@ for chave, produtos in lojas.items():
 # ✅ Mensagem de confirmação para o desenvolvedor
 if numero_dev:
     agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    confirmacao = f"🛠️ Confirmação: script rodou com sucesso em {agora} (horário de Manaus)."
+    total_lojas = len(lojas)
+    total_produtos = sum(len(produtos) for produtos in lojas.values())
+
+    mensagem = (
+        f"🛠️ Confirmação KBV\n"
+        f"✅ Script rodou com sucesso em {agora} (horário de Manaus).\n"
+        f"🏬 Lojas processadas: {total_lojas}\n"
+        f"📦 Produtos enviados: {total_produtos}"
+    )
 
     print(f"📌 Número do desenvolvedor lido: {numero_dev}")
-    print(f"📨 Mensagem de confirmação: {confirmacao}")
+    print(f"📨 Mensagem de confirmação: {mensagem}")
 
-    payload_dev = {
+    payload = {
         "celular": numero_dev,
-        "mensagem": confirmacao
+        "mensagem": mensagem
     }
 
-    response_dev = requests.post(url, data=payload_dev)
-    print(f"📡 Resposta da API (dev): {response_dev.status_code} - {response_dev.text}")
+    response = requests.post(url, data=payload)
+    print(f"📡 Status: {response.status_code}")
+    print(f"📨 Resposta: {response.text}")
 else:
     print("⚠️ Nenhum número de desenvolvedor encontrado. Confirmação não enviada.")
 
