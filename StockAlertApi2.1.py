@@ -3,6 +3,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import requests
 import os
 from collections import defaultdict
+from datetime import datetime
 
 print("🔄 Iniciando envio de mensagens...")
 
@@ -89,13 +90,20 @@ for chave, produtos in lojas.items():
 
 # ✅ Mensagem de confirmação para o desenvolvedor
 if numero_dev:
-    confirmacao = "✅ O script de envio de mensagens rodou com sucesso no GitHub Actions."
+    agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    confirmacao = f"🛠️ Confirmação: script rodou com sucesso em {agora} (horário de Manaus)."
+
+    print(f"📌 Número do desenvolvedor lido: {numero_dev}")
+    print(f"📨 Mensagem de confirmação: {confirmacao}")
+
     payload_dev = {
         "celular": numero_dev,
         "mensagem": confirmacao
     }
 
     response_dev = requests.post(url, data=payload_dev)
-    print(f"📬 Confirmação enviada para desenvolvedor: {response_dev.status_code} - {response_dev.text}")
+    print(f"📡 Resposta da API (dev): {response_dev.status_code} - {response_dev.text}")
+else:
+    print("⚠️ Nenhum número de desenvolvedor encontrado. Confirmação não enviada.")
 
 print("✅ Mensagens enviadas com sucesso!")
