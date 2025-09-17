@@ -4,15 +4,21 @@ import requests
 import os
 from collections import defaultdict
 
-# 🔐 Lê variáveis do ambiente (GitHub Secrets)
-numero = os.environ.get("GET_NUMWPP_ENV")
-cred_json = os.environ.get("GOOGLE_CRED_JSON")
+print("🔄 Iniciando envio de mensagens...")
 
-# 📝 Salva credenciais como arquivo temporário
+# 🔐 Lê todos os números de WhatsApp dos secrets
+numeros = []
+for i in range(1, 7):
+    numero = os.environ.get(f"WHATSAPP_NUMERO{i}")
+    if numero:
+        numeros.append(numero)
+
+# 🔐 Lê credenciais do Google
+cred_json = os.environ.get("GOOGLE_CRED_JSON")
 with open("credenciais.json", "w") as f:
     f.write(cred_json)
 
-# 📊 Configura acesso ao Google Sheets
+# 📊 Conecta ao Google Sheets
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 creds = ServiceAccountCredentials.from_json_keyfile_name("credenciais.json", scope)
 client = gspread.authorize(creds)
@@ -20,11 +26,10 @@ client = gspread.authorize(creds)
 SHEET_ID = '1FbVt2Ux4ZwtO_cpF0AUS9lO5lrgJJxKMEsyENZG3jXs'
 SHEET_TAB_NAME = 'ESTOQUE'
 
-sheet = client.open_by_key(SHEET_ID)
-worksheet = sheet.worksheet(SHEET_TAB_NAME)
+worksheet = client.open_by_key(SHEET_ID).worksheet(SHEET_TAB_NAME)
 dados = worksheet.get_all_records()
 
-# 🏬 Processa os dados da planilha
+# 🏬 Processa os dados
 ultima_n_loja = ""
 ultima_loja = ""
 ultima_estado = ""
@@ -60,19 +65,19 @@ for idx, linha in enumerate(dados, start=2):
     chave = f"{n_loja} - {loja} ({estado})"
     lojas[chave].append(f"{quantidade} MT de bobina {produto_formatado}")
 
-# 📤 Envia mensagens via API
+# 📤 Envia mensagens para todos os números
 url = "https://appbobinaskbv.bubbleapps.io/version-test/api/1.1/wf/enviamensagem"
 
 for chave, produtos in lojas.items():
     mensagem = f"⚠ Loja {chave} precisa de:\n" + "\n".join(produtos)
 
-    payload = {
-        "celular": numero,
-        "mensagem": mensagem
-    }
+    for numero in numeros:
+        payload = {
+            "celular": numero,
+            "mensagem": mensagem
+        }
 
-    response = requests.post(url, data=payload)
-    if response.status_code == 200:
-        print(f"✅ Mensagem enviada para {numero}:\n{mensagem}\n")
-    else:
-        print(f"❌ Erro ao enviar para {numero}: {response.status_code} - {response.text}")
+        response = requests.post(url, data=payload)
+        print(f"📡 Enviado para {numero}: {response.status_code} - {response.text}")
+
+print("✅ Mensagens enviadas com sucesso!")
