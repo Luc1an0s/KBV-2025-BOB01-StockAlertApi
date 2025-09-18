@@ -89,6 +89,35 @@
     <li>Os valores de estoque são interpretados corretamente mesmo com vírgulas e pontos</li>
     <li>O envio de mensagens é feito apenas para os números definidos no segredo <code>GET_NUMWPP_ENV</code></li>
   </ul>
+  
+  <h2>📦 CHANGELOG - StockAlertApi</h2>
+<p>Todas as alterações relevantes neste projeto são documentadas abaixo, seguindo convenções semânticas para facilitar rastreabilidade e manutenção.</p>
 
+<h2>📅 Versões</h2>
+
+<h3>[Bob02.01] - 17/09/2025</h3>
+<h4>🔧 Added</h4>
+<ul>
+  <li>Definição da estratégia de execução automatizada via GitHub Actions.</li>
+  <li>Configuração de agendamento com cron para execução periódica.</li>
+</ul>
+
+<hr>
+
+<h3>[Bob01.02] - 12/09/2025</h3>
+<h4>🔄 Changed</h4>
+<ul>
+  <li>Substituição da API de mensageria de <strong>Ultramsg</strong> para <strong>Bubble.io</strong>, visando maior estabilidade, suporte a templates e integração simplificada.</li>
+</ul>
+
+<hr>
+
+<h3>[Bob01.01] - 12/09/2025</h3>
+<h4>🆕 Added</h4>
+<ul>
+  <li>Definição da API de mensageria baseada em protocolo HTTP RESTful (<strong>Ultramsg</strong>).</li>
+  <li>Integração entre script Python e Google Sheets utilizando <strong>Google Cloud SDK</strong>.</li>
+  <li>Implementação inicial do fluxo de envio de mensagens via WhatsApp.</li>
+</ul>
 </body>
 </html>
