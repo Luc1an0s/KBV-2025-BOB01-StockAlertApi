@@ -11,16 +11,18 @@ from datetime import datetime
 
 print("🔄 Iniciando envio de mensagens...")
 
-scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-cred_path = r"C:\Users\Lucius\Documents\GitHub\Credenciais\StockAlertApi\credenciais.json"
+cred_json = os.environ.get("GOOGLE_CRED_JSON")
+if not cred_json:
+    raise RuntimeError("Variável GOOGLE_CRED_JSON não definida.")
+with open("credentials.json", "w", encoding="utf-8") as f:
+    f.write(cred_json)
 
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-creds = ServiceAccountCredentials.from_json_keyfile_name(cred_path, scope)
+creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
 client = gspread.authorize(creds)
 
 SHEET_ID = '1pP92qnTgU32x44QCM8kCkXl9mSSukKFGwf4qGQUBObs'
-SHEET_TAB_NAME = 'ESTOQUE'
-worksheet = client.open_by_key(SHEET_ID).worksheet(SHEET_TAB_NAME)
+worksheet = client.open_by_key(SHEET_ID).worksheet('ESTOQUE')
 
 def parse_quantidade(valor):
     if valor is None:
@@ -82,6 +84,25 @@ i_loja = idx("LOJA")
 i_estado = idx("ESTADO")
 i_produto = idx("TIPO DE TELHA")
 i_qtd = idx("ESTOQUE A ENVIAR")
+i_estoque_total = idx("ESTOQUE TOTAL")
+
+worksheet_rotas = client.open_by_key(SHEET_ID).worksheet('ROTAS')
+rotas_values = worksheet_rotas.get_all_values()
+rotas_galpoes = rotas_values[1][2:]
+rotas_destinos = [row[1] for row in rotas_values[2:]]
+rotas_matriz = [row[2:] for row in rotas_values[2:]]
+
+def get_estoque_galpao_tipo(galpao, tipo_telha):
+    for r in rows:
+        loja_val = r[i_loja] if i_loja < len(r) else ''
+        tipo_val = r[i_produto] if i_produto < len(r) else ''
+        if loja_val.strip() == galpao and tipo_val.strip() == tipo_telha:
+            qtd_total = r[i_estoque_total] if i_estoque_total < len(r) else ''
+            try:
+                return parse_quantidade(qtd_total)
+            except:
+                return 0.0
+    return 0.0
 
 ultima_n_loja = ultima_loja = ultima_estado = ""
 lojas = defaultdict(list)
@@ -126,6 +147,21 @@ url = "https://appbobinaskbv.bubbleapps.io/version-test/api/1.1/wf/enviamensagem
 
 for chave, produtos in lojas.items():
     mensagem = f"⚠ Loja {chave} precisa de:\n" + "\n".join(produtos)
+    destino_nome = chave.split(" - ")[1].split(" (")[0].strip()
+    tipo_telha = None
+    if produtos:
+        match = re.search(r'bobina ([^\n]+)', produtos[0])
+        if match:
+            tipo_telha = match.group(1).strip()
+    if destino_nome in rotas_destinos and tipo_telha:
+        idx_destino = rotas_destinos.index(destino_nome)
+        rotas_linha = rotas_matriz[idx_destino]
+        galpoes_autorizados = [g for g, v in zip(rotas_galpoes, rotas_linha) if v == '1']
+        if galpoes_autorizados:
+            mensagem += "\n\nEstoque disponível nos galpões autorizados para o tipo de telha:"
+            for galpao in galpoes_autorizados:
+                qtd = get_estoque_galpao_tipo(galpao, tipo_telha)
+                mensagem += f"\n- {galpao}: {qtd:.2f} MT ({tipo_telha})"
     for numero in numeros:
         payload = {
             "celular": numero,
