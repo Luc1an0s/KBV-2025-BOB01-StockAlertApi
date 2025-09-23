@@ -177,7 +177,13 @@ destinatario = os.environ.get("EMAIL_DESTINATARIO")
 if remetente and senha and destinatario:
     manaus_tz = pytz.timezone("America/Manaus")
     agora = datetime.now(manaus_tz).strftime("%d/%m/%Y %H:%M:%S")
-    mensagem = f"🛠️ Confirmação KBV\n✅ Script rodou com sucesso em {agora} (horário de Manaus)."
+    numeros_formatados = "\n".join(f"- {n}" for n in numeros)
+    mensagem = (
+        f"🛠️ Confirmação KBV\n"
+        f"✅ Script rodou com sucesso em {agora} (horário de Manaus).\n\n"
+        f"📱 Mensagens enviadas para os seguintes números de WhatsApp:\n{numeros_formatados}"
+    )
+
     msg = MIMEText(mensagem)
     msg["Subject"] = "Confirmação KBV"
     msg["From"] = remetente
