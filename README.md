@@ -25,8 +25,7 @@
   <h2>⏰ Agendamento</h2>
   <p>Executado automaticamente de segunda a sábado:</p>
   <ul>
-    <li>🕛 <strong>12h Manaus</strong> → <code>cron: '0 16 * * 1-6'</code> (16h UTC)</li>
-    <li>🕔 <strong>17h Manaus</strong> → <code>cron: '0 21 * * 1-6'</code> (21h UTC)</li>
+    <li>🕔 <strong>17h Manaus</strong> → <code>cron: '0 21 * * 1-5'</code> (21h UTC)</li>
   </ul>
   <p>Também pode ser executado manualmente via <code>workflow_dispatch</code>.</p>
 
