@@ -128,7 +128,7 @@ for r in rows:
     except:
         continue
 
-    if quantidade <= 500:
+    if quantidade <= 200:
         continue
 
     try:
