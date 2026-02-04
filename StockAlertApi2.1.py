@@ -9,7 +9,7 @@ import pytz
 from collections import defaultdict
 from datetime import datetime
 
-print("🔄 Iniciando envio de mensagens...")
+print("Iniciando envio de mensagens...")
 
 cred_json = os.environ.get("GOOGLE_CRED_JSON")
 if not cred_json:
@@ -168,7 +168,7 @@ for chave, produtos in lojas.items():
             "mensagem": mensagem
         }
         response = requests.post(url, data=payload)
-        print(f"📡 Enviado para {numero}: {response.status_code} - {response.text}")
+        print(f"Enviado para {numero}: {response.status_code} - {response.text}")
 
 remetente = os.environ.get("EMAIL_REMETENTE")
 senha = os.environ.get("EMAIL_SENHA")
@@ -179,9 +179,9 @@ if remetente and senha and destinatario:
     agora = datetime.now(manaus_tz).strftime("%d/%m/%Y %H:%M:%S")
     numeros_formatados = "\n".join(f"- {n}" for n in numeros)
     mensagem = (
-        f"🛠️ Confirmação KBV\n"
-        f"✅ Script rodou com sucesso em {agora} (horário de Manaus).\n\n"
-        f"📱 Mensagens enviadas para os seguintes números de WhatsApp:\n{numeros_formatados}"
+        f"Confirmação KBV\n"
+        f"Script rodou com sucesso em {agora} (horário de Manaus).\n\n"
+        f"Mensagens enviadas para os seguintes números de WhatsApp:\n{numeros_formatados}"
     )
 
     msg = MIMEText(mensagem)
@@ -192,10 +192,10 @@ if remetente and senha and destinatario:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(remetente, senha)
             server.sendmail(remetente, destinatario, msg.as_string())
-        print("📧 E-mail de confirmação enviado com sucesso!")
+        print("E-mail de confirmação enviado com sucesso!")
     except Exception as e:
-        print(f"⚠️ Erro ao enviar e-mail: {e}")
+        print(f"Erro ao enviar e-mail: {e}")
 else:
-    print("⚠️ Variáveis de e-mail não configuradas. Confirmação não enviada.")
+    print("Variáveis de e-mail não configuradas. Confirmação não enviada.")
 
-print("✅ Mensagens enviadas com sucesso!")
+print("Mensagens enviadas com sucesso!")
