@@ -18,8 +18,7 @@ print("Iniciando processo de verificação e envio...")
 CRED_JSON = os.environ.get("GOOGLE_CRED_JSON")
 META_TOKEN = os.environ.get("META_WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.environ.get("META_PHONE_ID")
-TEMPLATE_PADRAO = "alerta_de_estoque_de_bobina"
-TEMPLATE_GERAL = "alerta_de_estoque_de_bobinas_geral"
+TEMPLATE_NAME = "alerta_de_estoque_de_bobina"
 
 if not CRED_JSON:
     raise RuntimeError("Variável GOOGLE_CRED_JSON não definida.")
@@ -137,7 +136,6 @@ for chave, lista_produtos in lojas.items():
         galpao_nome, galpao_qtd, galpao_tipo = "N/A", "0,00", p_tipo
         destino_nome = chave.split(" - ")[1].split(" (")[0].strip()
 
-        # Verifica se o destino existe nas rotas e busca o galpão autorizado
         if destino_nome in rotas_destinos:
             idx_dest = rotas_destinos.index(destino_nome)
             linha_rota = rotas_matriz[idx_dest]
@@ -148,27 +146,6 @@ for chave, lista_produtos in lojas.items():
                 q_galpao = get_estoque_galpao_tipo(galpao_nome, p_tipo, rows, i_loja, i_produto, i_estoque_total)
                 galpao_qtd = f"{q_galpao:.2f}".replace(".", ",")
 
-        # --- LÓGICA DE SELEÇÃO DE TEMPLATE ---
-        if galpao_nome == "N/A":
-            template_escolhido = TEMPLATE_GERAL
-            # Parâmetros para o template GERAL (Ajuste a ordem conforme configurado na Meta)
-            component_params = [
-                {"type": "text", "text": str(chave)},    # {{1}} Identificação da Loja
-                {"type": "text", "text": str(p_qtd)},    # {{2}} Quantidade Necessária
-                {"type": "text", "text": str(p_tipo)}    # {{3}} Tipo da Bobina
-            ]
-        else:
-            template_escolhido = TEMPLATE_PADRAO
-            # Parâmetros para o template com GALPÃO (6 variáveis)
-            component_params = [
-                {"type": "text", "text": str(chave)},        # {{1}}
-                {"type": "text", "text": str(p_qtd)},        # {{2}}
-                {"type": "text", "text": str(p_tipo)},       # {{3}}
-                {"type": "text", "text": str(galpao_nome)},  # {{4}}
-                {"type": "text", "text": str(galpao_qtd)},   # {{5}}
-                {"type": "text", "text": str(galpao_tipo)}   # {{6}}
-            ]
-
         for numero in numeros:
             numero_limpo = re.sub(r"\D", "", numero)
             if not numero_limpo.startswith("55"): numero_limpo = "55" + numero_limpo
@@ -178,19 +155,26 @@ for chave, lista_produtos in lojas.items():
                 "to": numero_limpo,
                 "type": "template",
                 "template": {
-                    "name": template_escolhido,
+                    "name": TEMPLATE_NAME,
                     "language": {"code": "pt_BR"},
                     "components": [
                         {
                             "type": "body",
-                            "parameters": component_params
+                            "parameters": [
+                                {"type": "text", "text": str(chave)},        # {{1}}
+                                {"type": "text", "text": str(p_qtd)},        # {{2}}
+                                {"type": "text", "text": str(p_tipo)},       # {{3}}
+                                {"type": "text", "text": str(galpao_nome)},  # {{4}}
+                                {"type": "text", "text": str(galpao_qtd)},   # {{5}}
+                                {"type": "text", "text": str(galpao_tipo)}   # {{6}}
+                            ]
                         }
                     ]
                 }
             }
             
             res = requests.post(url_meta, headers=headers_meta, json=payload)
-            print(f"Envio ({template_escolhido}) para {numero_limpo}: {res.status_code}")
+            print(f"Envio para {numero_limpo}: {res.status_code}")
             if res.status_code != 200:
                 print(f"ERRO DA META: {res.json()}")
 
