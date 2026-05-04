@@ -8,6 +8,9 @@ import re
 import pytz
 from collections import defaultdict
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 print("Iniciando processo de verificação e envio...")
 
@@ -29,7 +32,12 @@ creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", sco
 client = gspread.authorize(creds)
 
 SHEET_ID = '1pP92qnTgU32x44QCM8kCkXl9mSSukKFGwf4qGQUBObs'
-worksheet = client.open_by_key(SHEET_ID).worksheet('ESTOQUE')
+try:
+    worksheet = client.open_by_key(SHEET_ID).worksheet('ESTOQUE')
+    worksheet_rotas = client.open_by_key(SHEET_ID).worksheet('ROTAS')
+except Exception as e:
+    print(f"Erro ao abrir planilhas: {e}")
+    exit(1)
 
 # --- FUNÇÕES AUXILIARES ---
 def parse_quantidade(valor):
@@ -67,7 +75,11 @@ headers = values[0]
 rows = values[1:]
 
 def idx(colname):
-    return headers.index(colname)
+    try:
+        return headers.index(colname)
+    except ValueError:
+        print(f"ERRO: Coluna '{colname}' não encontrada na aba ESTOQUE.")
+        exit(1)
 
 i_n_loja = idx("N_LOJA")
 i_loja = idx("LOJA")
@@ -77,7 +89,6 @@ i_qtd = idx("ESTOQUE A ENVIAR")
 i_estoque_total = idx("ESTOQUE TOTAL")
 
 # Carregar Rotas
-worksheet_rotas = client.open_by_key(SHEET_ID).worksheet('ROTAS')
 rotas_values = worksheet_rotas.get_all_values()
 rotas_galpoes = rotas_values[1][2:]
 rotas_destinos = [row[1] for row in rotas_values[2:]]
@@ -88,16 +99,13 @@ ultima_n_loja = ultima_loja = ultima_estado = ""
 lojas = defaultdict(list)
 
 for r in rows:
-    n_loja = r[i_n_loja].strip() or ultima_n_loja
-    loja = r[i_loja].strip() or ultima_loja
-    estado = r[i_estado].strip() or ultima_estado
+    n_loja = (r[i_n_loja].strip() if i_n_loja < len(r) else "") or ultima_n_loja
+    loja = (r[i_loja].strip() if i_loja < len(r) else "") or ultima_loja
+    estado = (r[i_estado].strip() if i_estado < len(r) else "") or ultima_estado
     ultima_n_loja, ultima_loja, ultima_estado = n_loja, loja, estado
 
-    produto = r[i_produto].strip()
-    try:
-        quantidade = parse_quantidade(r[i_qtd])
-    except:
-        continue
+    produto = r[i_produto].strip() if i_produto < len(r) else ""
+    quantidade = parse_quantidade(r[i_qtd]) if i_qtd < len(r) else 0.0
 
     if quantidade <= 200: continue
 
@@ -117,13 +125,14 @@ headers_meta = {
 raw_env = os.environ.get("GET_NUMWPP_ENV", "")
 numeros = [l.split("=", 1)[1].strip() for l in raw_env.splitlines() if "=" in l]
 
+print(f"Lojas com alerta: {len(lojas)}")
+print(f"Números de destino: {len(numeros)}")
+
 for chave, lista_produtos in lojas.items():
-    # Para cada produto que a loja precisa, enviamos um alerta (template fixo para 1 item por vez)
     for item in lista_produtos:
         p_qtd = item["qtd"]
         p_tipo = item["tipo"]
 
-        # Busca Galpão Autorizado
         galpao_nome, galpao_qtd, galpao_tipo = "N/A", "0,00", p_tipo
         destino_nome = chave.split(" - ")[1].split(" (")[0].strip()
 
@@ -137,7 +146,6 @@ for chave, lista_produtos in lojas.items():
                 q_galpao = get_estoque_galpao_tipo(galpao_nome, p_tipo, rows, i_loja, i_produto, i_estoque_total)
                 galpao_qtd = f"{q_galpao:.2f}".replace(".", ",")
 
-        # Enviar para a lista de contatos
         for numero in numeros:
             numero_limpo = re.sub(r"\D", "", numero)
             if not numero_limpo.startswith("55"): numero_limpo = "55" + numero_limpo
@@ -153,12 +161,12 @@ for chave, lista_produtos in lojas.items():
                         {
                             "type": "body",
                             "parameters": [
-                                {"type": "text", "text": chave},        # {{1}}
-                                {"type": "text", "text": p_qtd},        # {{2}}
-                                {"type": "text", "text": p_tipo},       # {{3}}
-                                {"type": "text", "text": galpao_nome},  # {{4}}
-                                {"type": "text", "text": galpao_qtd},   # {{5}}
-                                {"type": "text", "text": galpao_tipo}   # {{6}}
+                                {"type": "text", "text": str(chave)},        # {{1}}
+                                {"type": "text", "text": str(p_qtd)},        # {{2}}
+                                {"type": "text", "text": str(p_tipo)},       # {{3}}
+                                {"type": "text", "text": str(galpao_nome)},  # {{4}}
+                                {"type": "text", "text": str(galpao_qtd)},   # {{5}}
+                                {"type": "text", "text": str(galpao_tipo)}   # {{6}}
                             ]
                         }
                     ]
@@ -167,6 +175,8 @@ for chave, lista_produtos in lojas.items():
             
             res = requests.post(url_meta, headers=headers_meta, json=payload)
             print(f"Envio para {numero_limpo}: {res.status_code}")
+            if res.status_code != 200:
+                print(f"ERRO DA META: {res.json()}")
 
 # --- E-MAIL DE CONFIRMAÇÃO ---
 remetente = os.environ.get("EMAIL_REMETENTE")
@@ -186,5 +196,9 @@ if remetente and senha and destinatario:
         print("E-mail enviado!")
     except Exception as e:
         print(f"Erro e-mail: {e}")
+
+# Limpa o arquivo temporário
+if os.path.exists("credentials.json"):
+    os.remove("credentials.json")
 
 print("Processo finalizado.")
