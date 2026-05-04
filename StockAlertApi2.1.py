@@ -116,7 +116,7 @@ for r in rows:
     lojas[chave].append({"qtd": quantidade_formatada, "tipo": produto_formatado})
 
 # --- ENVIO WHATSAPP (META API) ---
-url_meta = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
+url_meta = f"https://graph.facebook.com/v25.0/{PHONE_NUMBER_ID}/messages"
 headers_meta = {
     "Authorization": f"Bearer {META_TOKEN}",
     "Content-Type": "application/json"
