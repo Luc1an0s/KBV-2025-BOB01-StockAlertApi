@@ -9,14 +9,21 @@ import pytz
 from collections import defaultdict
 from datetime import datetime
 
-print("Iniciando envio de mensagens...")
+print("Iniciando processo de verificação e envio...")
 
-cred_json = os.environ.get("GOOGLE_CRED_JSON")
-if not cred_json:
+# --- CONFIGURAÇÕES DE AMBIENTE ---
+CRED_JSON = os.environ.get("GOOGLE_CRED_JSON")
+META_TOKEN = os.environ.get("META_WHATSAPP_TOKEN")
+PHONE_NUMBER_ID = os.environ.get("META_PHONE_ID")
+TEMPLATE_NAME = "alerta_de_estoque_de_bobina"
+
+if not CRED_JSON:
     raise RuntimeError("Variável GOOGLE_CRED_JSON não definida.")
-with open("credentials.json", "w", encoding="utf-8") as f:
-    f.write(cred_json)
 
+with open("credentials.json", "w", encoding="utf-8") as f:
+    f.write(CRED_JSON)
+
+# --- AUTENTICAÇÃO GOOGLE SHEETS ---
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
 client = gspread.authorize(creds)
@@ -24,60 +31,43 @@ client = gspread.authorize(creds)
 SHEET_ID = '1pP92qnTgU32x44QCM8kCkXl9mSSukKFGwf4qGQUBObs'
 worksheet = client.open_by_key(SHEET_ID).worksheet('ESTOQUE')
 
+# --- FUNÇÕES AUXILIARES ---
 def parse_quantidade(valor):
-    if valor is None:
-        return 0.0
-    if isinstance(valor, (int, float)):
-        return float(valor)
+    if valor is None: return 0.0
+    if isinstance(valor, (int, float)): return float(valor)
     s = str(valor).strip()
     s = re.sub(r"[^\d.,-]", "", s)
     negativo = s.startswith("-")
     s = s.lstrip("-")
-    if not s:
-        return 0.0
+    if not s: return 0.0
     if "," in s:
         inteiro, _, decimal = s.rpartition(",")
         inteiro = inteiro.replace(".", "")
-        decimal = re.sub(r"\D", "", decimal)
-        if decimal == "":
-            decimal = "00"
         s = f"{inteiro}.{decimal}"
     elif "." in s:
         parts = s.split(".")
-        if len(parts) > 2:
-            last = parts[-1]
-            if last.isdigit() and 1 <= len(last) <= 2:
-                inteiro = "".join(parts[:-1])
-                decimal = last
-                s = f"{inteiro}.{decimal}"
-            else:
-                s = "".join(parts)
-        else:
-            left, right = parts
-            if right.isdigit() and 1 <= len(right) <= 2:
-                s = f"{left}.{right}"
-            else:
-                s = f"{left}{right}"
-    return -float(s) if negativo else float(s)
+        if len(parts) > 2: s = "".join(parts)
+    try:
+        return -float(s) if negativo else float(s)
+    except:
+        return 0.0
 
-raw_env = os.environ.get("GET_NUMWPP_ENV", "")
-numeros = []
-for linha in raw_env.splitlines():
-    if "=" in linha:
-        _, valor = linha.split("=", 1)
-        numero = valor.strip()
-        if numero:
-            numeros.append(numero)
+def get_estoque_galpao_tipo(galpao, tipo_telha, rows, i_loja, i_produto, i_estoque_total):
+    for r in rows:
+        loja_val = r[i_loja].strip() if i_loja < len(r) else ''
+        tipo_val = r[i_produto].strip() if i_produto < len(r) else ''
+        if loja_val == galpao and tipo_val == tipo_telha:
+            qtd_total = r[i_estoque_total] if i_estoque_total < len(r) else '0'
+            return parse_quantidade(qtd_total)
+    return 0.0
 
+# --- LEITURA DOS DADOS ---
 values = worksheet.get_all_values()
 headers = values[0]
 rows = values[1:]
 
 def idx(colname):
-    try:
-        return headers.index(colname)
-    except ValueError:
-        raise RuntimeError(f"Coluna '{colname}' não encontrada.")
+    return headers.index(colname)
 
 i_n_loja = idx("N_LOJA")
 i_loja = idx("LOJA")
@@ -86,90 +76,99 @@ i_produto = idx("TIPO DE TELHA")
 i_qtd = idx("ESTOQUE A ENVIAR")
 i_estoque_total = idx("ESTOQUE TOTAL")
 
+# Carregar Rotas
 worksheet_rotas = client.open_by_key(SHEET_ID).worksheet('ROTAS')
 rotas_values = worksheet_rotas.get_all_values()
 rotas_galpoes = rotas_values[1][2:]
 rotas_destinos = [row[1] for row in rotas_values[2:]]
 rotas_matriz = [row[2:] for row in rotas_values[2:]]
 
-def get_estoque_galpao_tipo(galpao, tipo_telha):
-    for r in rows:
-        loja_val = r[i_loja] if i_loja < len(r) else ''
-        tipo_val = r[i_produto] if i_produto < len(r) else ''
-        if loja_val.strip() == galpao and tipo_val.strip() == tipo_telha:
-            qtd_total = r[i_estoque_total] if i_estoque_total < len(r) else ''
-            try:
-                return parse_quantidade(qtd_total)
-            except:
-                return 0.0
-    return 0.0
-
+# --- PROCESSAMENTO LOGÍSTICO ---
 ultima_n_loja = ultima_loja = ultima_estado = ""
 lojas = defaultdict(list)
 
 for r in rows:
-    n_loja = r[i_n_loja].strip() if i_n_loja < len(r) else ""
-    loja = r[i_loja].strip() if i_loja < len(r) else ""
-    estado = r[i_estado].strip() if i_estado < len(r) else ""
-    produto = r[i_produto].strip() if i_produto < len(r) else ""
-    quantidade_raw = r[i_qtd].strip() if i_qtd < len(r) else ""
-
-    if not n_loja:
-        n_loja = ultima_n_loja
-    if not loja:
-        loja = ultima_loja
-    if not estado:
-        estado = ultima_estado
-
+    n_loja = r[i_n_loja].strip() or ultima_n_loja
+    loja = r[i_loja].strip() or ultima_loja
+    estado = r[i_estado].strip() or ultima_estado
     ultima_n_loja, ultima_loja, ultima_estado = n_loja, loja, estado
 
+    produto = r[i_produto].strip()
     try:
-        quantidade = parse_quantidade(quantidade_raw)
+        quantidade = parse_quantidade(r[i_qtd])
     except:
         continue
 
-    if quantidade <= 200:
-        continue
+    if quantidade <= 200: continue
 
-    try:
-        if str(produto).isdigit():
-            produto_formatado = f"0,{int(produto)}"
-        else:
-            produto_formatado = str(produto)
-    except:
-        produto_formatado = str(produto)
-
+    produto_formatado = f"0,{int(produto)}" if str(produto).isdigit() else str(produto)
     quantidade_formatada = f"{quantidade:.2f}".replace(".", ",")
+    
     chave = f"{n_loja} - {loja} ({estado})"
-    lojas[chave].append(f"{quantidade_formatada} MT de bobina {produto_formatado}")
+    lojas[chave].append({"qtd": quantidade_formatada, "tipo": produto_formatado})
 
-url = "https://appbobinaskbv.bubbleapps.io/version-test/api/1.1/wf/enviamensagem"
+# --- ENVIO WHATSAPP (META API) ---
+url_meta = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
+headers_meta = {
+    "Authorization": f"Bearer {META_TOKEN}",
+    "Content-Type": "application/json"
+}
 
-for chave, produtos in lojas.items():
-    mensagem = f"⚠ Loja {chave} precisa de:\n" + "\n".join(produtos)
-    destino_nome = chave.split(" - ")[1].split(" (")[0].strip()
-    tipo_telha = None
-    if produtos:
-        match = re.search(r'bobina ([^\n]+)', produtos[0])
-        if match:
-            tipo_telha = match.group(1).strip()
-    if destino_nome in rotas_destinos and tipo_telha:
-        idx_destino = rotas_destinos.index(destino_nome)
-        rotas_linha = rotas_matriz[idx_destino]
-        galpoes_autorizados = [g for g, v in zip(rotas_galpoes, rotas_linha) if v == '1']
-        if galpoes_autorizados:
-            mensagem += "\n\nEstoque disponível nos galpões autorizados para o tipo de telha:"
-            for galpao in galpoes_autorizados:
-                qtd = get_estoque_galpao_tipo(galpao, tipo_telha)
-                mensagem += f"\n- {galpao}: {qtd:.2f} MT ({tipo_telha})"
-    for numero in numeros:
-        payload = {
-            "celular": numero,
-            "mensagem": mensagem
-        }
-        response = requests.post(url, data=payload)
-        print(f"Enviado para {numero}: {response.status_code} - {response.text}")
+raw_env = os.environ.get("GET_NUMWPP_ENV", "")
+numeros = [l.split("=", 1)[1].strip() for l in raw_env.splitlines() if "=" in l]
 
+for chave, lista_produtos in lojas.items():
+    # Para cada produto que a loja precisa, enviamos um alerta (template fixo para 1 item por vez)
+    for item in lista_produtos:
+        p_qtd = item["qtd"]
+        p_tipo = item["tipo"]
+
+        # Busca Galpão Autorizado
+        galpao_nome, galpao_qtd, galpao_tipo = "N/A", "0,00", p_tipo
+        destino_nome = chave.split(" - ")[1].split(" (")[0].strip()
+
+        if destino_nome in rotas_destinos:
+            idx_dest = rotas_destinos.index(destino_nome)
+            linha_rota = rotas_matriz[idx_dest]
+            autorizados = [g for g, v in zip(rotas_galpoes, linha_rota) if v == '1']
+            
+            if autorizados:
+                galpao_nome = autorizados[0]
+                q_galpao = get_estoque_galpao_tipo(galpao_nome, p_tipo, rows, i_loja, i_produto, i_estoque_total)
+                galpao_qtd = f"{q_galpao:.2f}".replace(".", ",")
+
+        # Enviar para a lista de contatos
+        for numero in numeros:
+            numero_limpo = re.sub(r"\D", "", numero)
+            if not numero_limpo.startswith("55"): numero_limpo = "55" + numero_limpo
+
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": numero_limpo,
+                "type": "template",
+                "template": {
+                    "name": TEMPLATE_NAME,
+                    "language": {"code": "pt_BR"},
+                    "components": [
+                        {
+                            "type": "body",
+                            "parameters": [
+                                {"type": "text", "text": chave},        # {{1}}
+                                {"type": "text", "text": p_qtd},        # {{2}}
+                                {"type": "text", "text": p_tipo},       # {{3}}
+                                {"type": "text", "text": galpao_nome},  # {{4}}
+                                {"type": "text", "text": galpao_qtd},   # {{5}}
+                                {"type": "text", "text": galpao_tipo}   # {{6}}
+                            ]
+                        }
+                    ]
+                }
+            }
+            
+            res = requests.post(url_meta, headers=headers_meta, json=payload)
+            print(f"Envio para {numero_limpo}: {res.status_code}")
+
+# --- E-MAIL DE CONFIRMAÇÃO ---
 remetente = os.environ.get("EMAIL_REMETENTE")
 senha = os.environ.get("EMAIL_SENHA")
 destinatario = os.environ.get("EMAIL_DESTINATARIO")
@@ -177,25 +176,15 @@ destinatario = os.environ.get("EMAIL_DESTINATARIO")
 if remetente and senha and destinatario:
     manaus_tz = pytz.timezone("America/Manaus")
     agora = datetime.now(manaus_tz).strftime("%d/%m/%Y %H:%M:%S")
-    numeros_formatados = "\n".join(f"- {n}" for n in numeros)
-    mensagem = (
-        f"Confirmação KBV\n"
-        f"Script rodou com sucesso em {agora} (horário de Manaus).\n\n"
-        f"Mensagens enviadas para os seguintes números de WhatsApp:\n{numeros_formatados}"
-    )
-
-    msg = MIMEText(mensagem)
-    msg["Subject"] = "Confirmação KBV"
-    msg["From"] = remetente
-    msg["To"] = destinatario
+    msg = MIMEText(f"Script KBV executado com sucesso em {agora}.\nNúmeros notificados:\n" + "\n".join(numeros))
+    msg["Subject"] = "Confirmação de Execução KBV"
+    msg["From"], msg["To"] = remetente, destinatario
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(remetente, senha)
             server.sendmail(remetente, destinatario, msg.as_string())
-        print("E-mail de confirmação enviado com sucesso!")
+        print("E-mail enviado!")
     except Exception as e:
-        print(f"Erro ao enviar e-mail: {e}")
-else:
-    print("Variáveis de e-mail não configuradas. Confirmação não enviada.")
+        print(f"Erro e-mail: {e}")
 
-print("Mensagens enviadas com sucesso!")
+print("Processo finalizado.")
